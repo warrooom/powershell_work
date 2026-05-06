@@ -1,0 +1,6 @@
+#Not_Applicable
+#Open
+#Not_Reviewed
+$findStatus = "Not_Applicable"; $ckltochange = "C:\Users\user\Documents\"
+	
+foreach ( $file in $(Get-ChildItem -Recurse -Include *RHEL9*.ckl -Path $ckltochange )) {write-host "Prcessing $($file.FullName)"; $xmlReader = New-Object System.Xml.XmlTextReader($file.FullName); $xmlReader.WhitespaceHandling = [System.Xml.WhitespaceHandling]::All; [xml]$CKL = New-Object System.Xml.XmlDocument; $CKL.PreserveWhitespace = $true; $CKL.Load($xmlReader); $xmlReader.Close(); $DataNodes = $CKL.SelectNodes("//CHECKLIST/STIGS/iSTIG/VULN[.//STATUS = '$findStatus']"); if ($DataNodes -ne $null -and $DataNodes.Count -gt 0) {foreach($node in $DataNodes){$commentsNode = $node.SelectSingleNode("COMMENTS"); if ($commentsNode.InnerText.length -eq 0) {$vulnatNode = $node.SelectSingleNode("VULN_ATTRIBUTE"); $atdataNode = $node.SelectSingleNode("ATTRIBUTE_DATA"); Write-Host "Found $findStatus in $file AT $($atdataNode.InnerText) VNODE $($node.SelectSingleNode("VULN_ATTRIBUTE").InnerText)" } } } }
