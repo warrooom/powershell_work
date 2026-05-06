@@ -1,0 +1,10 @@
+#$DataNodes = $CKL.SelectNodes('//CHECKLIST/STIGS/iSTIG/VULN')
+#SelectNodes("//VULN[.//STIG_DATA/ATTRIBUTE_DATA = '$targetAttributeData']")
+#<STATUS>Not_Reviewed</STATUS>
+#<STATUS>NotAFinding</STATUS>
+#Not_Applicable
+#RHEL-09-251035
+#RHEL-08-040030
+$targetAttributeData = "RHEL-09-215060"; $currentStatusText = "Not_Applicable"; $newstatusText = "Not_Applicable"; $newCommentText = 'A TFTP server has not been installed on the system.'; $ckltochange = "C:\Users\user\Documents\"
+	
+foreach ( $file in $(Get-ChildItem -Recurse -Include *RHEL9*.ckl -Path $ckltochange )) {write-host "Prcessing $($file.FullName)"; $xmlReader = New-Object System.Xml.XmlTextReader($file.FullName); $xmlReader.WhitespaceHandling = [System.Xml.WhitespaceHandling]::All; [xml]$CKL = New-Object System.Xml.XmlDocument; $CKL.PreserveWhitespace = $true; $CKL.Load($xmlReader); $xmlReader.Close(); $DataNodes = $CKL.SelectNodes("//CHECKLIST/STIGS/iSTIG/VULN[.//STIG_DATA/ATTRIBUTE_DATA = '$targetAttributeData']"); if ($DataNodes -ne $null -and $DataNodes.Count -gt 0) { Write-Host "Found $($DataNodes.Count) matching vulnerability attributes in this file."; foreach($node in $DataNodes){$commentsNode = $node.SelectSingleNode("COMMENTS"); $statusNode = $node.SelectSingleNode("STATUS"); if ($statusNode.InnerText -eq "$currentStatusText") {Write-Host "Found $currentStatusText matching vulnerability attributes in this file."; if ($commentsNode -ne $null){ $commentsNode.InnerText = $newCommentText; $CKL.Save("$file") } if ($statusNode -ne $null){ $statusNode.InnerText = $newstatusText; $CKL.Save("$file") } } } } }
