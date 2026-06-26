@@ -1,0 +1,306 @@
+## Curl notes
+curl -k -X GET -H "Authorization: ApiKey key" "https://masternode1:9200/_cat/health?v"
+curl -k -X PUT -H "Authorization: ApiKey key" "https://masternode1:9200/_cluster/settings"  -H 'Content-Type: application/json' -d ' {
+  "persistent": {
+    "cluster.routing.allocation.enable": "primaries"
+  }
+}'
+curl -k -X POST -H "Authorization: ApiKey key" "https://masternode1:9200/_flush"
+
+curl -k -X PUT -H "Authorization: ApiKey key" "https://masternode1:9200/_cluster/settings" -H 'Content-Type: application/json' -d ' {
+  "persistent": {
+    "cluster.routing.allocation.disk.watermark.low": "90%",
+    "cluster.routing.allocation.disk.watermark.low.max_headroom": "100GB",
+    "cluster.routing.allocation.disk.watermark.high": "95%",
+    "cluster.routing.allocation.disk.watermark.high.max_headroom": "20GB",
+    "cluster.routing.allocation.disk.watermark.flood_stage": "97%",
+    "cluster.routing.allocation.disk.watermark.flood_stage.max_headroom": "5GB",
+    "cluster.routing.allocation.disk.watermark.flood_stage.frozen": "97%",
+    "cluster.routing.allocation.disk.watermark.flood_stage.frozen.max_headroom": "5GB"
+  }
+}'
+
+
+## Kibana Dev Notes:
+#Cluster healthcheck
+GET /_cat/health?v
+GET /_cat/allocation/ehn*?v&s=node
+GET /_cat/allocation/ecn*?v&s=node
+GET /_cat/allocation/efn*?v&s=node
+GET /_cat/allocation/emn*?v&s=node
+
+GET /logs-*/_search
+{
+    "query": {
+        "regexp": {
+          "agent.name": {
+            "value": "server.?\\.domain\\.local" 
+          }
+        }
+    }
+}
+GET _snapshot/
+GET _snapshot/elasticshare2/*?verbose=false
+POST _snapshot/elasticshare2/nightly-snap-2026.06.10-w0ceixinqtybkhly48mhdg/_restore
+{
+    "indices": "partial-.ds-logs-auditd.log-2026.02.*"
+}
+
+GET /_cat/nodes?v&h=ip,name,version,role&s=name
+
+GET _cluster/health?filter_path=status,*_shards
+GET _cat/shards?v=true&h=index,shard,prirep,state,node,unassigned.reason&s=state
+POST _cluster/reroute
+POST _cluster/reroute?retry_failed=true
+
+GET /_cluster/allocation/explain?pretty
+
+
+PUT _slm/policy/
+POST _ilm/start
+POST _snapshot/elasticdata/elasticdata_manual
+{
+  "partial": true
+}
+#snap status
+GET _snapshot/elasticdata/elasticdata_manual/_status
+
+GET _cat/nodes?v
+GET _cluster/allocation/explain
+POST _cluster/reroute?retry_failed
+GET /_cat/allocation?v=true&h=node,disk.percent
+GET /_cluster/allocation/explain
+
+GET /_cat/nodes?v=true&h=name,node.role
+#Disk status
+get _cluster/settings?include_defaults=true&pretty
+GET _cat/allocation?v=true&h=node,disk.percent,disk.used,disk.total
+
+PUT _slm/policy/nightly-snapshots 
+{
+  "schedule": "0 30 1 * * ?",
+  "name": "<nightly-snap-{now/d}>",
+  "repository": "elasticdata",
+  "config": {
+    "indices": "*",
+    "include_global_state": true
+  },
+  "retention": {
+    "expire_after": "30d",
+    "min_count": 4,
+    "max_count": 15
+  }
+}
+POST _slm/policy/nightly-snapshots/_execute
+
+#During update index recovery:
+PUT _cluster/settings
+{
+  "persistent": {
+    "indices.recovery.max_bytes_per_sec": "200MB"
+  }
+}
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster.routing.allocation.node_concurrent_recoveries": "8"
+  }
+}
+
+GET my-index/_settings?flat_settings=true&include_defaults=true
+
+
+
+
+
+GET _cat/shards?v=true&h=index,shard,prirep,state,node,unassigned.reason&s=state&format=json
+
+#quick snippet to identify cluster activity
+GET _cluster/health?pretty
+GET /_cat/indices?v
+
+
+
+POST /_slm/start
+GET /_slm/stats
+DELETE /_slm/policy/daily-snapshots
+GET /_snapshot/_status
+POST /_ilm/start
+GET /_ilm/status
+GET /_slm/status
+GET _features
+DELETE _snapshot/elasticdata/2025.12*
+
+POST /_snapshot/elasticdata/_verify
+
+POST /_snapshot/elasticdata/_cleanup
+GET /_snapshot/_status/elasticdata
+
+POST /.ds/_forcemerge?max_num_segments=1
+
+GET /temp*
+GET /logs-elastic_agent.filebeat-*/_search?q=created:<2025-12-01
+
+GET /logs-elastic_agent.filebeat-*/_delete_by_query?q=created:<2025-12-01
+
+GET /
+
+#Simple API call that filters headers by ip, name, version, role then sorts by name
+GET /_cat/nodes?v&h=ip,name,version,role&s=name
+
+#for active master details
+GET /_cat/master
+
+#indexing pressure stats - pay attention to any rejects
+
+#identify hot threads
+GET _nodes/hot_threads
+
+#provides useful information when shards become inexpecably unassigned
+GET _cluster/allocation/explain
+
+POST _snapshot/elasticdata/_cleanup
+
+GET _cluster/settings?pretty
+
+#Disable shard allocation
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster.routing.allocation.enable": "primaries"
+  }
+}
+
+#Stop indexing and perform a flush
+POST /_flush
+
+#Re-enable shard allocation
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster.routing.allocation.enable": null
+  }
+}
+
+#bleed shards off specified node - replace null with node name
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster.routing.allocation.exclude._ip" : null
+  }
+}
+
+
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster.routing.allocation.cluster_concurrent_rebalance" : "4"
+  }
+}
+
+
+#raising watermark
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster.routing.allocation.disk.watermark.low": "80%",
+    "cluster.routing.allocation.disk.watermark.high": "85%",
+    "cluster.routing.allocation.disk.watermark.flood_stage": "9%",
+    "cluster.info.update.interval": "1m"
+  }
+}
+
+#ilm config info - replace policy name as needed
+GET _ilm/policy/logs_ilm_policy
+
+#Create a test index
+PUT test_index_name
+{
+  "aliases": {
+    "test_ilm_alias": {
+      "is_write_index": true
+    }
+  }
+}
+
+
+
+
+
+#creating rollover alias for ilm
+POST _aliases
+{
+  "actions": [
+    {
+      "add": {
+        "index": "test_ilm-000001",
+        "alias": "test_ilm_alias"
+      }
+    }
+  ]
+}
+
+#Put test index on test ILM Policy
+PUT test_ilm-000001/_settings
+{
+  "index": {
+    "lifecycle": {
+      "name": "test_ilm",
+      "rollover_alias": "test_ilm_alias"
+    }
+  }
+}
+
+
+GET _health_report/shards_capacity
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster.max_shards_per_node.frozen": 7000
+  }
+}
+
+# Adjust watermark for failed forcemerges
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster.routing.allocation.disk.watermark.low": "100gb",
+    "cluster.routing.allocation.disk.watermark.high": "50gb",
+    "cluster.routing.allocation.disk.watermark.flood_stage": "25gb"
+  }
+}
+
+#Used to push back high watermark (Flood) condition which prevents shard movement and login to kib
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster.routing.allocation.disk.watermark.low": "90%",
+    "cluster.routing.allocation.disk.watermark.low.max_headroom": "100GB",
+    "cluster.routing.allocation.disk.watermark.high": "95%",
+    "cluster.routing.allocation.disk.watermark.high.max_headroom": "20GB",
+    "cluster.routing.allocation.disk.watermark.flood_stage": "97%",
+    "cluster.routing.allocation.disk.watermark.flood_stage.max_headroom": "5GB",
+    "cluster.routing.allocation.disk.watermark.flood_stage.frozen": "97%",
+    "cluster.routing.allocation.disk.watermark.flood_stage.frozen.max_headroom": "5GB"
+  }
+}
+PUT */_settings?expand_wildcards=all
+{
+  "index.blocks.read_only_allow_delete": null
+}
+GET /_snapshot/elasticdata/nightly-snap-2026.01.23-_2zd7qlxtocjzaw6gjycga/_status?pretty
+
+#Reverts settings to raise high watermark and flood.
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster.routing.allocation.disk.watermark.low": null,
+    "cluster.routing.allocation.disk.watermark.low.max_headroom": null,
+    "cluster.routing.allocation.disk.watermark.high": null,
+    "cluster.routing.allocation.disk.watermark.high.max_headroom": null,
+    "cluster.routing.allocation.disk.watermark.flood_stage": null,
+    "cluster.routing.allocation.disk.watermark.flood_stage.max_headroom": null,
+    "cluster.routing.allocation.disk.watermark.flood_stage.frozen": null,
+    "cluster.routing.allocation.disk.watermark.flood_stage.frozen.max_headroom": null
+  }
+}
